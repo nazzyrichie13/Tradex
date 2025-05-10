@@ -3,13 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>adim chat-panel</title>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <title>admin</title>
     <link rel="stylesheet" href="/style.css">
-
 </head>
+<style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    .admin-panel {
+      max-width: 500px;
+      margin: 100px auto;
+      padding: 30px;
+      background: #fff;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      border-radius: 10px;
+    }
+    h2 {
+      text-align: center;
+      color: #333;
+    }
+    label {
+      display: block;
+      margin: 15px 0 5px;
+      color: #555;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 10px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .message {
+      margin-top: 20px;
+      text-align: center;
+      font-weight: bold;
+    }
+    </style>
 <body>
-    <h3>Chat with User</h3>
+    <div class="admin-panel">
+        <h2>Update User's Matured Amount</h2>
+        <form onsubmit="updateMatured(event)">
+          <label for="userId">User ID:</label>
+          <input type="text" id="userId" required />
+    
+          <label for="amount">New Matured Amount:</label>
+          <input type="number" id="amount" step="0.01" required />
+    
+          <button type="submit">Update</button>
+        </form>
+        <div class="message" id="message"></div>
+      </div>
+        <h3>Chat with User</h3>
 <select id="userSelect"></select>
 <div id="chat-box" style="border:1px solid #ccc; height:300px; overflow:auto;"></div>
 <input type="text" id="msg" placeholder="Type a message" />
@@ -20,11 +80,44 @@
 <!-- Instead of text -->
 <img src="/icons/tick.svg"> or inline SVG/icons
 
+    </div>
+   
+
+      
+      <script>
+        async function updateMatured(event) {
+      event.preventDefault();
+
+      const userId = document.getElementById('userId').value;
+      const maturedAmount = parseFloat(document.getElementById('amount').value);
+      const messageEl = document.getElementById('message');
+
+      try {
+        const response = await fetch(`/api/admin/update-matured/${userId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer YOUR_ADMIN_JWT_TOKEN` // Replace with actual token
+          },
+          body: JSON.stringify({ maturedAmount })
+        });
+
+        const result = await response.json();
+        messageEl.textContent = result.message || 'Update complete';
+        messageEl.style.color = 'green';
+      } catch (err) {
+        messageEl.textContent = 'Error updating matured amount';
+        messageEl.style.color = 'red';
+      }
+    }
 
 
 
-<script>
-  const token = localStorage.getItem('adminToken');
+
+
+
+
+        const token = localStorage.getItem('adminToken');
   let selectedUser = '';
 
   async function loadUsers() {
