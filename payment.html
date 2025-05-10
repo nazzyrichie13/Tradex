@@ -1,0 +1,55 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deposit Funds</title>
+  <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+  <h2>Deposit Funds</h2>
+  <input type="number" id="amount" placeholder="Amount in USD" />
+  <button id="pay-button">Pay Now</button>
+
+  <script>
+    const stripe = Stripe('your_publishable_key'); // Add your Stripe publishable key here
+    const payButton = document.getElementById('pay-button');
+
+    payButton.addEventListener('click', async () => {
+      const amount = document.getElementById('amount').value * 100; // Convert to cents
+
+      if (amount <= 0) {
+        alert("Please enter a valid amount");
+        return;
+      }
+
+      const res = await fetch('http://localhost:5000/api/payments/create-payment-intent', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`  // Use user's auth token if needed
+        },
+        body: JSON.stringify({ amount })
+      });
+
+      const data = await res.json();
+
+      const { clientSecret } = data;
+
+      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: { token: 'your_card_token' },  // This will be the card information collected from the user
+        }
+      });
+
+      if (error) {
+        alert(`Payment failed: ${error.message}`);
+      } else if (paymentIntent.status === 'succeeded') {
+        alert('Payment successful!');
+        // You can now update user wallet or perform any necessary action
+      }
+    });
+  </script>
+</body>
+</html>

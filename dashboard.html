@@ -1,0 +1,215 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tradex Dashboard</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h2>Welcome to Tradex Dashboard</h2>
+    <h3>Available Investment Plans</h3>
+    <div id="plans"></div>
+
+    <h3>Your Investments</h3>
+    <div id="investments"></div>
+  </div>
+  <h3>Request Withdrawal</h3>
+<input type="number" id="withdraw-amount" placeholder="Amount" />
+<button onclick="requestWithdrawal()">Withdraw</button>
+<div id="withdrawals"></div>
+<h3>Wallet Balance: $<span id="wallet"></span></h3>
+<h3>Transaction History</h3>
+<div id="transactions"></div>
+<div id="chat-container" style="display: none;">
+    <!-- Chat UI here -->
+  </div>
+  <footer class="bg-gray-900 text-gray-300 py-12 px-6 md:px-20">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10">
+      
+      <!-- Logo & About -->
+      <div>
+        <h2 class="text-2xl font-bold text-white mb-4">Tradex</h2>
+        <p class="text-sm">
+          Tradex is a global investment platform offering secure trading solutions, crypto investments, and wealth management tools.
+        </p>
+      </div>
+  
+      <!-- Navigation -->
+      <div>
+        <h3 class="text-lg font-semibold text-white mb-3">Quick Links</h3>
+        <ul class="space-y-2 text-sm">
+          <li><a href="/" class="hover:text-white">Home</a></li>
+          <li><a href="/about" class="hover:text-white">About Us</a></li>
+          <li><a href="/investments" class="hover:text-white">Investments</a></li>
+          <li><a href="/contact" class="hover:text-white">Contact</a></li>
+          <li><a href="/faq" class="hover:text-white">FAQs</a></li>
+        </ul>
+      </div>
+  
+      <!-- Contact Info -->
+      <div>
+        <h3 class="text-lg font-semibold text-white mb-3">Contact Us</h3>
+        <ul class="space-y-2 text-sm">
+          <li>Email: <a href="mailto:support@tradex.com" class="hover:text-white">support@tradex.com</a></li>
+          <li>Phone: +1 (800) 555-0199</li>
+          <li>Address: 123 Finance Blvd, New York, NY 10001</li>
+        </ul>
+      </div>
+  
+      <!-- Newsletter -->
+      <div>
+        <h3 class="text-lg font-semibold text-white mb-3">Subscribe</h3>
+        <p class="text-sm mb-3">Join our newsletter for updates and insights.</p>
+        <form class="flex flex-col sm:flex-row items-center gap-2">
+          <input type="email" placeholder="Email address" class="w-full px-3 py-2 rounded text-gray-900" />
+          <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded">Subscribe</button>
+        </form>
+      </div>
+  
+    </div>
+  
+    <div class="border-t border-gray-700 mt-10 pt-6 flex flex-col md:flex-row justify-between items-center text-sm">
+      <p>&copy; 2025 Tradex. All rights reserved.</p>
+      <div class="flex gap-4 mt-4 md:mt-0">
+        <a href="/terms" class="hover:text-white">Terms of Service</a>
+        <a href="/privacy" class="hover:text-white">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
+  
+  
+
+
+
+
+  <script>
+    const token = localStorage.getItem("tradex_token");
+
+    if (!token) location.href = "index.html";
+
+    async function fetchPlans() {
+      const res = await fetch("http://localhost:5000/api/investments/plans", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const plans = await res.json();
+      const container = document.getElementById("plans");
+      container.innerHTML = plans.map(plan => `
+        <div style="border:1px solid #ccc;padding:10px;margin:10px;">
+          <h4>${plan.title}</h4>
+          <p>${plan.description}</p>
+          <input type="number" id="amount-${plan._id}" placeholder="Amount" />
+          <button onclick="invest('${plan._id}')">Invest</button>
+        </div>
+      `).join('');
+    }
+
+    async function invest(planId) {
+      const amount = document.getElementById(`amount-${planId}`).value;
+      const res = await fetch("http://localhost:5000/api/investments/invest", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ planId, amount })
+      });
+      if (res.ok) fetchInvestments();
+    }
+
+    async function fetchInvestments() {
+      const res = await fetch("http://localhost:5000/api/investments/my-investments", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      document.getElementById("investments").innerHTML = data.map(i => `
+        <p>${i.plan.title} - $${i.amount} - ${i.status}</p>
+      `).join('');
+    }
+
+    fetchPlans();
+    fetchInvestments();
+    async function requestWithdrawal() {
+  const amount = document.getElementById("withdraw-amount").value;
+  const res = await fetch("http://localhost:5000/api/withdrawals", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ amount })
+  });
+
+  const data = await res.json();
+  alert(data.msg || "Withdrawal submitted.");
+  fetchWithdrawals();
+}
+
+async function fetchWithdrawals() {
+  const res = await fetch("http://localhost:5000/api/withdrawals", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  const data = await res.json();
+  document.getElementById("withdrawals").innerHTML = data.map(w => `
+    <p>$${w.amount} - ${w.status}</p>
+  `).join('');
+}
+
+fetchWithdrawals();
+document.getElementById("investments").innerHTML = data.map(i => `
+  <p>
+    ${i.plan.title} - $${i.amount} - ${i.status}
+    ${i.isMatured ? ` - <b>Return: $${i.maturedAmount}</b>` : ''}
+  </p>
+`).join('');
+async function fetchWallet() {
+  const res = await fetch("http://localhost:5000/api/wallet", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await res.json();
+  document.getElementById("wallet").textContent = data.wallet;
+}
+
+fetchWallet();
+async function fetchTransactions() {
+  const res = await fetch("http://localhost:5000/api/transactions", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await res.json();
+
+  document.getElementById("transactions").innerHTML = data.map(txn => `
+    <p><b>${txn.type.toUpperCase()}</b>: $${txn.amount} - ${txn.description} (${new Date(txn.date).toLocaleString()})</p>
+  `).join('');
+}
+
+fetchTransactions();
+async function fetchWallet() {
+  const res = await fetch('http://localhost:5000/api/wallet', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await res.json();
+  document.getElementById('wallet').textContent = `$${data.wallet}`;
+
+}
+socket.on('withdrawal_rejected', data => {
+  alert(data.message); // or custom modal
+
+  // Open chat panel if it's hidden
+  openChatPanel();
+
+  // Optionally pre-fill a message
+  document.getElementById('msg').value = `Hi, I saw my withdrawal was rejected (ID: ${data.withdrawalId}). Can you help?`;
+});
+function openChatPanel() {
+  document.getElementById('chat-container').style.display = 'block';
+}
+
+
+
+
+
+  </script>
+</body>
+</html>

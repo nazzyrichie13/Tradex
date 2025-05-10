@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>adim chat-panel</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="/style.css">
+
+</head>
+<body>
+    <h3>Chat with User</h3>
+<select id="userSelect"></select>
+<div id="chat-box" style="border:1px solid #ccc; height:300px; overflow:auto;"></div>
+<input type="text" id="msg" placeholder="Type a message" />
+<button onclick="sendMessage()">Send</button>
+<input type="file" id="fileInput" />
+<button onclick="sendFile()">Send File</button>
+<audio id="notifySound" src="/sounds/notification.mp3" preload="auto"></audio>
+<!-- Instead of text -->
+<img src="/icons/tick.svg"> or inline SVG/icons
+
+
+
+
+<script>
+  const token = localStorage.getItem('adminToken');
+  let selectedUser = '';
+
+  async function loadUsers() {
+    const res = await fetch('http://localhost:5000/api/users', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const users = await res.json();
+    const select = document.getElementById('userSelect');
+    users.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u._id;
+      opt.textContent = u.name;
+      select.appendChild(opt);
+    });
+
+    selectedUser = select.value;
+    select.addEventListener('change', () => {
+      selectedUser = select.value;
+      fetchMessages();
+    });
+  }
+
+  async function fetchMessages() {
+    const res = await fetch(`http://localhost:5000/api/chat/${selectedUser}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const messages = await res.json();
+    const box = document.getElementById('chat-box');
+    box.innerHTML = messages.map(m =>
+      `<p><b>${m.sender === selectedUser ? 'User' : 'You'}:</b> ${m.text}</p>`
+    ).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function sendMessage() {
+    const text = document.getElementById('msg').value;
+    await fetch(`http://localhost:5000/api/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ receiverId: selectedUser, text })
+    });
+    document.getElementById('msg').value = '';
+    fetchMessages();
+  }
+
+  setInterval(fetchMessages, 2000);
+  loadUsers().then(fetchMessages);
+  const socket = io('http://localhost:5000');
+socket.emit('register', currentUserId); // currentUserId = user._id from JWT
+
+// Receive messages
+socket.on('receive_message', msg => {
+  const box = document.getElementById('chat-box');
+  box.innerHTML += `<p><b>${msg.senderId === currentUserId ? 'You' : 'Them'}:</b> ${msg.text}</p>`;
+  box.scrollTop = box.scrollHeight;
+});
+
+function sendMessage() {
+  const text = document.getElementById('msg').value;
+  socket.emit('send_message', {
+    senderId: currentUserId,
+    receiverId: targetUserId, // admin or user
+    text
+  });
+  document.getElementById('msg').value = '';
+}
+const typingIndicator = document.createElement('p');
+typingIndicator.id = 'typing-indicator';
+typingIndicator.style.fontStyle = 'italic';
+document.getElementById('chat-box').after(typingIndicator);
+
+const messageInput = document.getElementById('msg');
+
+// Notify typing
+messageInput.addEventListener('input', () => {
+  if (messageInput.value.trim()) {
+    socket.emit('typing', { from: currentUserId, to: targetUserId });
+  } else {
+    socket.emit('stop_typing', { from: currentUserId, to: targetUserId });
+  }
+});
+
+// Show typing message
+socket.on('typing', ({ from }) => {
+  typingIndicator.textContent = from === targetUserId ? 'Typing...' : '';
+});
+
+socket.on('stop_typing', ({ from }) => {
+  if (from === targetUserId) typingIndicator.textContent = '';
+});
+async function sendFile() {
+  const file = document.getElementById('fileInput').files[0];
+  if (!file) return alert("No file selected");
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('receiverId', targetUserId);
+
+  const res = await fetch('http://localhost:5000/api/chat/upload', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    body: formData
+  });
+
+  const message = await res.json();
+  renderMessage(message);
+};
+function renderMessage(msg) {
+  const box = document.getElementById('chat-box');
+  const isImage = msg.fileType?.startsWith('image');
+
+  const content = msg.fileUrl
+    ? isImage
+      ? `<img src="${msg.fileUrl}" style="max-width:200px;" />`
+      : `<a href="${msg.fileUrl}" target="_blank">Download File</a>`
+    : msg.text;
+
+  box.innerHTML += `<p><b>${msg.sender === currentUserId ? 'You' : 'Them'}:</b> ${content}</p>`;
+  box.scrollTop = box.scrollHeight;
+  let statusIcon = '';
+
+if (msg.sender === currentUserId) {
+  if (msg.isRead) {
+    statusIcon = '✅✅ (blue)';
+  } else if (msg.isDelivered) {
+    statusIcon = '✅✅';
+  } else {
+    statusIcon = '✅';
+  }
+}
+
+box.innerHTML += `<p><b>${msg.sender === currentUserId ? 'You' : 'Them'}:</b> ${msg.text} <span>${statusIcon}</span></p>`;
+
+}
+socket.on('receive_message', msg => {
+  renderMessage(msg);
+
+  // Play sound if not sent by the current user
+  if (msg.senderId !== currentUserId) {
+    document.getElementById('notifySound').play();
+  }
+
+  // Optional: Flash title
+  document.title = 'New message...';
+  setTimeout(() => { document.title = 'Tradex Chat'; }, 2000);
+});
+socket.on('send_message', async (data) => {
+  const { senderId, receiverId, text } = data;
+
+  const newMessage = await Message.create({
+    sender: senderId,
+    receiver: receiverId,
+    text
+  });
+
+  const receiverSocketId = users.get(receiverId);
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit('receive_message', {
+      ...newMessage.toObject(),
+      delivered: true
+    });
+
+    // Mark as delivered in DB
+    await Message.findByIdAndUpdate(newMessage._id, { isDelivered: true });
+  }
+});
+function markAsRead(messageId) {
+  socket.emit('mark_read', { messageId, userId: currentUserId });
+}
+socket.on('mark_read', async ({ messageId }) => {
+  await Message.findByIdAndUpdate(messageId, { isRead: true });
+});
+await Message.updateMany({ receiver: userId, sender: senderId, isRead: false }, { isRead: true });
+
+
+
+socket.on('send_message', async data => {
+  const { senderId, receiverId, text } = data;
+
+  const newMessage = await Message.create({
+    sender: senderId,
+    receiver: receiverId,
+    text
+  });
+
+  const receiverSocketId = users.get(receiverId);
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit('receive_message', {
+      ...newMessage.toObject()
+    });
+
+    // Check if this is a reply after a rejected withdrawal
+    if (/withdrawal/i.test(text)) {
+      io.to(receiverSocketId).emit('user_responded_to_rejection', {
+        senderId,
+        message: text
+      });
+    }
+  }
+});
+socket.on('user_responded_to_rejection', data => {
+  // Play alert sound
+  const alertAudio = new Audio('/sounds/alert.mp3');
+  alertAudio.play();
+
+  // Optional: Pop-up or toast
+  alert(`User responded about a withdrawal issue: "${data.message}"`);
+
+  // Open chat or highlight it
+  openAdminChatWithUser(data.senderId);
+});
+function openAdminChatWithUser(userId) {
+  // Display chat UI and focus on that user
+  document.getElementById('admin-chat').style.display = 'block';
+  loadChatMessages(userId); // if you load messages dynamically
+}
+
+
+
+
+
+</script>
+
+    
+</body>
+</html>

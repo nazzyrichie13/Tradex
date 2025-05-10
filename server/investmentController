@@ -1,0 +1,37 @@
+
+const Plan = require('../models/InvestmentPlan');
+const Investment = require('../models/Investment');
+
+exports.getPlans = async (req, res) => {
+  const plans = await Plan.find();
+  res.json(plans);
+};
+
+exports.invest = async (req, res) => {
+  const { planId, amount } = req.body;
+  const investment = await Investment.create({
+    user: req.user.id,
+    plan: planId,
+    amount
+  });
+  res.json(investment);
+};
+
+exports.getUserInvestments = async (req, res) => {
+  const investments = await Investment.find({ user: req.user.id }).populate('plan');
+  res.json(investments);
+};
+await sendMail(req.user.email, 'Investment Confirmed', `
+    <p>Your investment of $${amount} in plan ${plan.title} has been recorded.</p>
+  `);
+  const Transaction = require('../models/Transaction');
+
+await Transaction.create({
+  user: req.user.id,
+  type: 'investment',
+  amount,
+  reference: investment._id,
+  description: `Invested in plan ${plan.title}`
+});
+
+  
