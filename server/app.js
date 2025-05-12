@@ -9,6 +9,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cron = require('node-cron');
 const { checkMaturity } = require('./scripts/roiCheckLogic');
+const withdrawalRoutes = require('./routes/withdrawalRoutes')(io, users);
 
 dotenv.config();
 const app = express();
@@ -31,7 +32,7 @@ mongoose.connect(process.env.MONGO_URI)
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/investments', require('./routes/investmentRoutes'));
-app.use('/api/withdrawals', require('./routes/withdrawalRoutes'));
+app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/wallet', require('./routes/walletRoutes'));
 app.use('/api/transactions', require('./routes/transactionRoutes'));

@@ -16,21 +16,12 @@ exports.register = async (req, res) => {
     if (exist) return res.status(400).json({ msg: 'Email already exists' });
 
     const user = await User.create({ name, email, password });
-    const token = createToken(user);
-    res.json({ user: { name: user.name, role: user.role }, token });
-  } catch (err) {
-    res.status(500).json({ msg: err.message });
-  }
-};
 
-exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ msg: 'User not found' });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
+    // Send welcome email here
+    await sendMail(user.email, 'Welcome to Tradex!', `
+      <h2>Hi ${user.name}</h2>
+      <p>Thank you for registering with Tradex. Start investing and earning today!</p>
+    `);
 
     const token = createToken(user);
     res.json({ user: { name: user.name, role: user.role }, token });
@@ -38,10 +29,11 @@ exports.login = async (req, res) => {
     res.status(500).json({ msg: err.message });
   }
 };
-const { sendMail } = require('../utils/mailer');
 
-await sendMail(user.email, 'Welcome to Tradex!', `
-  <h2>Hi ${user.name}</h2>
-  <p>Thank you for registering with Tradex. Start investing and earning today!</p>
-`);
+
+
+
+
+
+
 
