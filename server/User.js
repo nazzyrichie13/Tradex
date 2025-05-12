@@ -4,7 +4,11 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
     
-    wallet: { type: Number, default: 0 }
+    wallet: { type: Number, default: 0 },
+    maturedAmount: {
+        type: Number,
+        default: 0
+      },
   });
   
 
